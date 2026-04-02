@@ -1,4 +1,3 @@
 <Solution>
-  <Project Path="BatchPipeline.Tests/BatchPipeline.Tests.csproj" />
   <Project Path="BatchPipeline/BatchPipeline.csproj" />
 </Solution>
