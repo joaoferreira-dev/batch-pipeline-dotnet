@@ -1,0 +1,71 @@
+name: Build and Create PR to Main
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'fix/**'
+
+jobs:
+  build:
+    name: Build
+    if: github.ref_name != 'main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore BatchPipeline/BatchPipeline.csproj
+
+      - name: Build
+        run: dotnet build BatchPipeline/BatchPipeline.csproj --configuration Release --no-restore
+
+  create-pr-to-main:
+    name: Create PR to main
+    if: github.ref_name != 'main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Create PR if one does not exist
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const base = 'main';
+            const head = `${owner}:${context.ref.replace('refs/heads/', '')}`;
+
+            const { data: existing } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: 'open',
+              base,
+              head,
+            });
+
+            if (existing.length > 0) {
+              core.info(`PR already exists: #${existing[0].number}`);
+              return;
+            }
+
+            const { data: pr } = await github.rest.pulls.create({
+              owner,
+              repo,
+              title: `Merge ${context.ref.replace('refs/heads/', '')} into main`,
+              head,
+              base,
+              body: 'Automated PR created by GitHub Actions after successful build.'
+            });
+
+            core.info(`Created PR #${pr.number}`);
